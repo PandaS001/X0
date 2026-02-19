@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Крестики-нолики неон</title>
+<style>
+  body {
+    margin: 0;
+    background-color: #000;
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Центр по вертикали */
+    height: 100vh;
+    color: #00f;
+    position: relative;
+  }
+
+  /* Улучшенная кнопка возврата */
+  #backButton {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 8px 12px;
+    background-color: transparent;
+    border: 2px solid #00f;
+    border-radius: 6px;
+    color: #0ff;
+    font-size: 0.9em;
+    cursor: pointer;
+    font-weight: normal;
+    box-shadow: none;
+    transition: all 0.2s ease;
+    z-index: 5;
+  }
+
+  #backButton:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+
+  #status {
+    margin: 10px;
+    font-size: 1.4em;
+    color: #0ff;
+    text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+    letter-spacing: 1px;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 8px;
+    width: 90vmin;
+    max-width: 95vw;
+    aspect-ratio: 1/1;
+    padding: 10px;
+    background: linear-gradient(135deg, #000, #111);
+    border-radius: 15px;
+    box-shadow: 0 0 20px #00f, inset 0 0 10px #00f;
+  }
+
+  .cell {
+    background-color: #000;
+    border: 3px solid #00f;
+    border-radius: 12px;
+    font-size: 8vmin;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 8px #0ff inset, 0 0 15px #0ff;
+  }
+
+  .cell:hover {
+    box-shadow: 0 0 15px #0ff, inset 0 0 20px #0ff;
+    transform: scale(1.05);
+  }
+
+  @media(max-width: 600px){
+    #board {
+      width: 80vmin;
+    }
+    .cell {
+      font-size: 7vmin;
+    }
+  }
+
+  /* Стиль перезапуска */
+  #restart {
+    margin: 20px;
+    padding: 12px 24px;
+    background-color: #000;
+    border: 2px solid #00f;
+    border-radius: 8px;
+    color: #0ff;
+    font-size: 1.2em;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 0 15px #00f, inset 0 0 10px #00f;
+    transition: all 0.3s ease;
+  }
+
+  #restart:hover {
+    background-color: #00f;
+    color: #fff;
+    box-shadow: 0 0 20px #0ff, inset 0 0 15px #0ff;
+  }
+
+  /* Кнопка включения музыки */
+  #musicControl {
+    margin-top: 10px;
+    padding: 8px 16px;
+    background-color: #000;
+    border: 2px solid #00f;
+    border-radius: 8px;
+    color: #0ff;
+    font-size: 1em;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 0 15px #00f, inset 0 0 10px #00f;
+    transition: all 0.3s ease;
+  }
+
+  #musicControl:hover {
+    background-color: #00f;
+    color: #fff;
+    box-shadow: 0 0 20px #0ff, inset 0 0 15px #0ff;
+  }
+</style>
+</head>
+<body>
+
+<button id="backButton">Вернуться</button>
+
+<div id="status">Ходит: </div>
+<div id="board"></div>
+<button id="restart">Начать заново</button>
+<button id="musicControl">Включить музыку</button>
+
+<!-- Фоновая музыка из папки assets/audio -->
+<audio id="backgroundMusic" loop>
+  <source src="assets/audio/your_song.mp3" type="audio/mpeg" />
+</audio>
+
+<script>
+const boardElement = document.getElementById('board');
+const statusElement = document.getElementById('status');
+const restartButton = document.getElementById('restart');
+const backButton = document.getElementById('backButton');
+const musicButton = document.getElementById('musicControl');
+const music = document.getElementById('backgroundMusic');
+
+const returnPageURL = 'https://ваш-сайт-или-страница.com';
+
+let musicOn = false; // музыка изначально выключена
+
+backButton.onclick = () => {
+  window.location.href = returnPageURL;
+};
+
+let board = Array(9).fill(null);
+let humanPlayer = null;
+let aiPlayer = null;
+let currentPlayer = null;
+let gameActive = true;
+
+const winningCombinations = [
+  [0,1,2], [3,4,5], [6,7,8],
+  [0,3,6], [1,4,7], [2,5,8],
+  [0,4,8], [2,4,6]
+];
+
+function init() {
+  boardElement.innerHTML = '';
+  for(let i=0; i<9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.index = i;
+    cell.addEventListener('click', onCellClick);
+    boardElement.appendChild(cell);
+  }
+
+  if(Math.random() < 0.5){
+    humanPlayer = 'X';
+    aiPlayer = 'O';
+    currentPlayer = 'X';
+    statusElement.textContent = 'Ваш ход (X)';
+    if(currentPlayer !== humanPlayer){
+      setTimeout(aiMove, 500);
+    }
+  } else {
+    humanPlayer = 'O';
+    aiPlayer = 'X';
+    currentPlayer = 'X';
+    statusElement.textContent = 'Ходит ИИ (X)';
+    setTimeout(aiMove, 500);
+  }
+  board = Array(9).fill(null);
+  gameActive = true;
+}
+
+// Обработчик кнопки включения музыки
+musicButton.onclick = () => {
+  if(!musicOn){
+    music.play().then(() => {
+      musicOn = true;
+      musicButton.textContent = 'Выключить музыку';
+    }).catch(() => {
+      alert('Невозможно воспроизвести музыку. Браузер может блокировать автоматическое воспроизведение.');
+    });
+  } else {
+    music.pause();
+    musicOn = false;
+    musicButton.textContent = 'Включить музыку';
+  }
+};
+
+function onCellClick(e) {
+  const index = parseInt(e.target.dataset.index);
+  if(!gameActive || board[index]) return;
+  if(currentPlayer !== humanPlayer) return;
+
+  makeMove(index, humanPlayer);
+  if(checkWin(humanPlayer)){
+    statusElement.textContent = 'Вы выиграли!';
+    gameActive = false;
+    return;
+  } else if(isDraw()){
+    statusElement.textContent = 'Ничья!';
+    gameActive = false;
+    return;
+  }
+  currentPlayer = aiPlayer;
+  statusElement.textContent = 'Ходит ИИ (' + aiPlayer + ')';
+  setTimeout(aiMove, 500);
+}
+
+function makeMove(index, player) {
+  board[index] = player;
+  const cell = document.querySelector(`.cell[data-index='${index}']`);
+  cell.textContent = player;
+  cell.style.color = player === 'X' ? '#00f' : '#0ff';
+}
+
+function checkWin(player){
+  return winningCombinations.some(combo => {
+    return combo.every(index => board[index] === player);
+  });
+}
+
+function isDraw() {
+  return board.every(cell => cell);
+}
+
+function checkWinOnBoard(testBoard, player){
+  return winningCombinations.some(combo => {
+    return combo.every(index => testBoard[index] === player);
+  });
+}
+
+function minimax(newBoard, depth, isMaximizing) {
+  if (checkWinOnBoard(newBoard, aiPlayer)) return { score: 10 - depth };
+  if (checkWinOnBoard(newBoard, humanPlayer)) return { score: depth - 10 };
+  if (newBoard.every(cell => cell)) return { score: 0 };
+
+  const availableIndices = newBoard.map((val, i) => val === null ? i : null).filter(i => i !== null);
+  const moves = [];
+
+  for (let index of availableIndices) {
+    const boardCopy = newBoard.slice();
+    boardCopy[index] = isMaximizing ? aiPlayer : humanPlayer;
+
+    const result = minimax(boardCopy, depth + 1, !isMaximizing);
+    moves.push({ index, score: result.score });
+  }
+
+  if (isMaximizing) {
+    let bestMove = moves.reduce((best, move) => (move.score > best.score ? move : best), { score: -Infinity });
+    return bestMove;
+  } else {
+    let bestMove = moves.reduce((best, move) => (move.score < best.score ? move : best), { score: Infinity });
+    return bestMove;
+  }
+}
+
+function aiMove() {
+  if(!gameActive) return;
+
+  const available = board.map((val, i) => val === null ? i : null).filter(i => i !== null);
+
+  let move = null;
+  for(let i of available){
+    const tempBoard = board.slice();
+    tempBoard[i] = aiPlayer;
+    if(checkWinOnBoard(tempBoard, aiPlayer)){
+      move = i;
+      break;
+    }
+  }
+  if(move === null){
+    for(let i of available){
+      const tempBoard = board.slice();
+      tempBoard[i] = humanPlayer;
+      if(checkWinOnBoard(tempBoard, humanPlayer)){
+        move = i;
+        break;
+      }
+    }
+  }
+  if(move === null){
+    const best = minimax(board, 0, true);
+    move = best.index;
+  }
+
+  makeMove(move, aiPlayer);
+
+  if(checkWinOnBoard(board, aiPlayer)){
+    statusElement.textContent = 'Проиграли :(';
+    gameActive = false;
+    return;
+  } else if(isDraw()){
+    statusElement.textContent = 'Ничья!';
+    gameActive = false;
+    return;
+  }
+  currentPlayer = humanPlayer;
+  statusElement.textContent = 'Ваш ход (' + humanPlayer + ')';
+}
+
+restartButton.onclick = init;
+
+init();
+</script>
+
+</body>
+</html>
